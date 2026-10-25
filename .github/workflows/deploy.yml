@@ -1,0 +1,76 @@
+# Publish main: the API image to Cloud Run, then the page to Firebase Hosting.
+# Infrastructure changes are not applied here (terraform apply is run by hand,
+# see docs/deploy.md).
+#
+# Repository variables (Settings → Secrets and variables → Actions → Variables),
+# from `terraform output`:
+#   GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_DEPLOYER_SERVICE_ACCOUNT
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: portfolio-420211
+  REGION: asia-northeast1
+  SERVICE: doubt-api
+  IMAGE: asia-northeast1-docker.pkg.dev/portfolio-420211/doubt/doubt-api
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  api:
+    needs: test
+    # Skipped until the GCP side is set up (docs/deploy.md)
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+      - run: |
+          docker build -t "${IMAGE}:${GITHUB_SHA}" backend
+          docker push "${IMAGE}:${GITHUB_SHA}"
+      # Only the image changes; every other setting is Terraform's
+      - run: |
+          gcloud run deploy "${SERVICE}" --image "${IMAGE}:${GITHUB_SHA}" \
+            --region "${REGION}" --project "${PROJECT_ID}" --quiet
+
+  web:
+    needs: api
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      # The Firebase CLI picks up the credentials file the auth step wrote
+      - run: npx --yes firebase-tools@14 deploy --only hosting --project "${PROJECT_ID}" --non-interactive
