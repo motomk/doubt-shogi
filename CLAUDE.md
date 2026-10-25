@@ -22,8 +22,11 @@ Backend (`backend/`, Python 3.13 managed by uv; there is no system Python on thi
 uv sync
 uv run fastapi dev app/main.py   # http://127.0.0.1:8000, docs at /docs
 uv run pytest
+uv run pytest tests/test_main.py::test_health   # single test
 uvx ruff check .
 ```
+
+Every API route lives under `/api`: Firebase Hosting rewrites only `/api/**` to Cloud Run, and the Vite dev server proxies only `/api`.
 
 Frontend (`frontend/`, Vite + React 19 + TypeScript):
 
