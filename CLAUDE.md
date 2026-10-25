@@ -38,4 +38,4 @@ npm run build   # tsc -b && vite build
 
 ## Deployment
 
-https://doubt.enei-shogi.com — Firebase Hosting (site `doubt-shogi`) serves `frontend/dist` and rewrites `/api/**` to Cloud Run `doubt-api`. Pushing to main deploys (`.github/workflows/deploy.yml`); infrastructure is `infra/terraform/`, applied by hand. See `docs/deploy.md`.
+Not deployed yet (decided 2026-10-25: local development first; `terraform apply` and the Cloudflare DNS record wait until there is something to play). Planned: https://doubt.enei-shogi.com — Firebase Hosting (site `doubt-shogi`) serves `frontend/dist` and rewrites `/api/**` to Cloud Run `doubt-api`. Pushing to main deploys (`.github/workflows/deploy.yml`); infrastructure is `infra/terraform/`, applied by hand. See `docs/deploy.md`.
